@@ -93,7 +93,7 @@ trait DolDeprecationHandler
 			trigger_error($msg, E_USER_NOTICE);
 			$this->$name = $value;  // Setting anyway for graceful degradation
 		} else {
-			$this->$name = $value;
+			// $this->$name = $value;
 		}
 	}
 
