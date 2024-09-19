@@ -6,6 +6,7 @@ header("Content-Type: text/css");
 #hiddenTable_fastmodulecheck {
     display: flex;
     position: absolute;
+    width: 15vw;
     top: 50;
     background-color: gray;
     z-index: 4000;
@@ -13,15 +14,18 @@ header("Content-Type: text/css");
 .table_fast_title {
     display: flex;
     flex-wrap: no-wrap;
-    justify-content: space-between;
+    justify-content: space-around;
 }
 .table_fast_value {
     display: flex;
     flex-wrap: nowrap;
-    justify-content: space-between;
     align-items: center;
-    justify-content: center;
 }
 .table_fast_value td {
-    margin: 0 10px 0 10px;
+    width: 50%;
+    margin: 0 10px 0 30px;
+    text-align: start;
+}
+div.login_block_other {
+    max-width: 500px !important;
 }

@@ -406,72 +406,75 @@ class ActionsFastmodulecheck extends CommonHookActions
 
 				$moduleName = 'MAIN_MODULE_' . $moduleName;
 				if ($confirm == 'yes') {
-					
+					// We made some check against evil eternal modules that try to low security options.
+					$checkOldValue = getDolGlobalInt('CHECKLASTVERSION_EXTERNALMODULE');
+					$csrfCheckOldValue = getDolGlobalInt('MAIN_SECURITY_CSRF_WITH_TOKEN');
+					$resarray = activateModule($moduleName);
+					if ($checkOldValue != getDolGlobalInt('CHECKLASTVERSION_EXTERNALMODULE')) {
+						setEventMessage($langs->trans('WarningModuleHasChangedLastVersionCheckParameter', $moduleName), 'warnings');
+					}
+					if ($csrfCheckOldValue != getDolGlobalInt('MAIN_SECURITY_CSRF_WITH_TOKEN')) {
+						setEventMessage($langs->trans('WarningModuleHasChangedSecurityCsrfParameter', $moduleName), 'warnings');
+					}
+
+					dolibarr_set_const($db, "MAIN_IHM_PARAMS_REV", getDolGlobalInt('MAIN_IHM_PARAMS_REV') + 1, 'chaine', 0, '', $conf->entity);
+					if (!empty($resarray['errors'])) {
+						setEventMessages('', $resarray['errors'], 'errors');
+					} else {
+						//var_dump($resarray);exit;
+						if ($resarray['nbperms'] > 0) {
+							$tmpsql = "SELECT COUNT(rowid) as nb FROM ".MAIN_DB_PREFIX."user WHERE admin <> 1";
+							$resqltmp = $db->query($tmpsql);
+							if ($resqltmp) {
+								$obj = $db->fetch_object($resqltmp);
+								//var_dump($obj->nb);exit;
+								if ($obj && $obj->nb > 1) {
+									$msg = $langs->trans('ModuleEnabledAdminMustCheckRights');
+									setEventMessages($msg, null, 'warnings');
+								}
+							} else {
+								dol_print_error($db);
+							}
+						}
+					}
+					header("Location: ".$_SERVER["PHP_SELF"]."?mode=".$mode.$param.($page_y ? '&page_y='.$page_y : ''));
+					exit;
 					// $mod->activateModule($modulename);
 				} else {
 					$sql_delete = "DELETE FROM " . MAIN_DB_PREFIX . "const";
-					$sql_delete .= " WHERE " . $this->db->decrypt('name') . " LIKE '%MAIN_MODULE_FASTMODULECHECK%'";
+					$sql_delete .= " WHERE " . $this->db->decrypt('name') . " LIKE '%'.$moduleName.'%'";
 
 					$resql_delete = $this->db->query($sql_delete);
 					// $mod->unActivateModule($modulename);
 				}
-				$sql_update = "UPDATE " . MAIN_DB_PREFIX . "const SET value = '" . (int)$newValue . "'";
-				$sql_update .= " WHERE " . $this->db->decrypt('name') . " = '" . $this->db->escape($moduleName) . "'";
-
-				$resql_update = $this->db->query($sql_update);
 			}
 
-			$moduldir = dolGetModulesDirs();
-			$modulesData  = [];
+			// $moduldir = dolGetModulesDirs();
+			$modulTitle = [];
+			$sql = 'SELECT * FROM '.MAIN_DB_PREFIX.'const WHERE name like "%MAIN_MODULE%"';
+			$resql_get = $this->db->query($sql);
+			
+			while ($modulTitleSql = $this->db->fetch_object($resql_get)) {
+				if (!preg_match('/CSS/', $modulTitleSql->name) && 
+					!preg_match('/HOOKS/', $modulTitleSql->name) && 
+					!preg_match('/MAIN_MODULE_SETUP_ON_LIST_BY_DEFAULT/', $modulTitleSql->name) && 
+					!preg_match('/ICON/', $modulTitleSql->name)) {
 
-			foreach ($moduldir as $mod) {
-				$modname = explode('/', $mod);
-				if (in_array('custom', $modname)) {
-					$fmodulename = 'MAIN_MODULE_' . strtoupper($modname[6]);
-				} else {
-					$fmodulename = 'MAIN_MODULE_' . strtoupper($modname[5]);
-				}
-
-				// Test if module is activated
-				$sql_del = "SELECT ".$this->db->decrypt('value')." as value";
-				$sql_del .= " FROM ".MAIN_DB_PREFIX."const";
-				$sql_del .= " WHERE ".$this->db->decrypt('name')." = '".$this->db->escape($fmodulename)."'";
-
-				$resql = $this->db->query($sql_del);
-
-				if ($resql) {
-					$obj = $this->db->fetch_object($resql);
-					if (!empty($obj->value)) {
-						$fmodulename = explode('_', $fmodulename);
-						$modulesData[strtolower($fmodulename[2])] = $obj->value;
-					}
-				};
-				// $codeenabledisable = '';
-				// $codeenabledisable .= '<!-- Message to show: an always_enabled module has been disabled -->'."\n";
-				// $codeenabledisable .= '<a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$mod->numero.'&token='.newToken().'&module_position='.$module_position.'&action=activedModule&token='.newToken().'&value='.$modName.'&mode='.$mode.$param.'&confirm=yes"';
-				// $codeenabledisable .= '>';
-				// $codeenabledisable .= img_picto($langs->trans("Disabled"), 'switch_off');
-				// $codeenabledisable .= "</a>\n";
+					$modname = explode('_', $modulTitleSql->name);
+					$fmodulename = strtolower($modname[2]);
+					$modulTitle[$fmodulename] = $modulTitleSql->value;
 				}
 			}
-
-			// $codeenabledisable = '';
-
-				// $codeenabledisable .= '<!-- Message to show: an always_enabled module has been disabled -->'."\n";
-				// $codeenabledisable .= '<a class="reposition" href="'.$_SERVER["PHP_SELF"].'?id='.$mod->numero.'&token='.newToken().'&module_position='.$module_position.'&action=activedModule&token='.newToken().'&value='.$modName.'&mode='.$mode.$param.'&confirm=yes"';
-				// $codeenabledisable .= '>';
-				// $codeenabledisable .= img_picto($langs->trans("Disabled"), 'switch_off');
-				// $codeenabledisable .= "</a>\n";
 
 			$menu = '
-			<button id="toggleButton" onclick="toggleTable()">Afficher le tableau</button>
+			<button id="toggleButton" onclick="toggleTable()">v</button>
 			<table id="hiddenTable_fastmodulecheck" style="display:none; border: 1px solid black;">
 				<tr class="table_fast_title">
 					<th>Module Name</th>
-					<th>Action</th>
+					<th>Active</th>
 				</tr>';
 
-			foreach ($modulesData as $moduleName => $moduleValue) {
+			foreach ($modulTitle as $moduleName => $moduleValue) {
 				$iconValue = ($moduleValue == 1) ? 'no' : 'yes';
 				$menu .= '<tr class="table_fast_value">';
 				
@@ -504,13 +507,14 @@ class ActionsFastmodulecheck extends CommonHookActions
 					var button = document.getElementById("toggleButton");
 					if (table.style.display === "none") {
 						table.style.display = "table";
-						button.textContent = "Cacher le tableau";
+						button.textContent = "v";
 					} else {
 						table.style.display = "none";
-						button.textContent = "Afficher le tableau";
+						button.textContent = "v";
 					}
 				}
 			</script>';
+		}
 	}
 
 	/* Add other hook methods here... */
